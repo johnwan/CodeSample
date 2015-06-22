@@ -1,0 +1,260 @@
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import android.annotation.TargetApi;
+import android.app.ProgressDialog;
+import android.os.Build;
+import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.view.ViewPager;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.view.ViewTreeObserver;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+
+import com.intlpos.cornerstorepos.R;
+import com.intlpos.database.ButtonParam;
+import com.intlpos.database.Department;
+
+
+public class ItemLookupFragment extends Fragment {
+private View viewMain = null;
+	
+//	private Context context = this;
+	private final static int VIEW_MARGIN=2;
+	private final static int BUTTON_MARGIN=10;
+	private static final String TAG = "123";
+	public int btnWidth = 105;
+	public int btnHeight = 68;
+	// var for viewPager
+	private ArrayList<Fragment> fragmentsList;
+	private ArrayList<ArrayList<ButtonParam>> btn_list;
+	private int viewTag;
+	private MyFragmentPagerAdapter adapter= null;
+	private RadioGroup dotGroupButton = null;
+	
+	private ViewPager viewPager;
+	private List<View> viewList;
+	private View view;
+	private List<Department> departmentList;
+	private int itemsSize = 0;
+	private ArrayList<InventoryParcelable> dept_itemlist =null;
+//	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
+	
+	public ItemLookupFragment(){
+	}
+
+	
+	
+	private void calltoitemwebservice() 
+	{
+				if(dept_itemlist != null)
+				{
+					//GlobalSetup.PList = new ArrayList<HashMap<String,Object>>();
+						
+						
+						itemsSize = dept_itemlist.size();
+						
+					 		int screenWidth = viewMain.getWidth();
+					 		int screenHeight = viewMain.getHeight();
+							DisplayMetrics dm = new DisplayMetrics();
+							dm = viewMain.getContext().getResources().getDisplayMetrics();
+							int deviceWidth = dm.widthPixels;
+					 		if(deviceWidth > 2000){
+					 			btnWidth = deviceWidth/13;
+					 			btnHeight = deviceWidth/21;
+					 		}
+					 		int buttonsPerPage = (screenWidth/(btnWidth+BUTTON_MARGIN+VIEW_MARGIN)) *
+					 				(screenHeight/(btnHeight+VIEW_MARGIN));
+					 		
+					 		//int buttonsPerPage = 25;
+					 		viewList = new ArrayList<View>();
+
+					         //final String sTitle[] = new String[101];
+					 		//int total_buttons = sTitle.length;
+					 		int total_buttons = itemsSize;
+					 		int pages = (int) Math.ceil((double) total_buttons/buttonsPerPage);
+					 	
+					 	     // create buttons dynamically
+//					 		Log.d(TAG, "Btn#= "+ total_buttons + " Btn/Page= "+buttonsPerPage+ " Page#= "+pages);
+					 		
+					 		btn_list = new ArrayList<ArrayList<ButtonParam>>();
+					 		ArrayList<ButtonParam> btn_params = new ArrayList<ButtonParam>();
+					 		
+					 	
+					         int count = 0;
+					         for (int i = 0; i<total_buttons; i++)
+					         {
+					        	
+					         	btn_params.add(new ButtonParam(dept_itemlist.get(i).map, R.color.button_color));		         	
+					         	
+					 			count++;
+					 			if (count == buttonsPerPage){
+//					 				Log.d(TAG, "Page is FULL!");
+					 				btn_list.add(btn_params);
+					 				btn_params = new ArrayList<ButtonParam>();
+					 				count = 0;
+					 			}
+					 		}
+					         
+					         //add the last several strings
+					         if (btn_params.size() != 0)
+					         	btn_list.add(btn_params);
+
+					 			
+					        viewPager = (ViewPager) getActivity().findViewById(R.id.test1ViewPager);//Layout of viewPager
+					 		dotGroupButton = (RadioGroup) getActivity().findViewById(R.id.dot1GroupButton);
+					 		fragmentsList = new ArrayList<Fragment>();
+					 		for (int i = 0; i < btn_list.size();i++)
+					 		{
+					 			// Create a MyViewGroup
+					 			ArrayList<ButtonParam> list = btn_list.get(i);
+					 			int size = list.size();
+					 			
+					 		//	int[] img_arr = new int[size];
+					 			int[] color_arr = new int[size];
+					 			//Rinkal - While Department LookUp
+
+					 			ArrayList<InventoryParcelable> items = new ArrayList<InventoryParcelable>();
+					 			String[] item_name = new String[size];
+					 			String[] product_id = new String[size];
+					 			for (int j = 0 ; j < size; j++){
+					 				//dept_id[j] = list.get(j).getBtn_deptId();
+					 			//	dept_name[j] = list.get(j).getBtn_deptName();
+					 			//	img_arr[j] = list.get(j).getDrawable();
+					 				
+					 				color_arr[j] = list.get(j).getBgColor();
+//					 				item_name[j] = (String) list.get(j).getBtn_product().get("item_name");
+//					 				product_id[j] = (String) list.get(j).getBtn_product().get("product_id");
+					 				InventoryParcelable ip = new InventoryParcelable();
+					 				ip.map = list.get(j).getBtn_product();
+					 				items.add(ip);
+					 				
+					 			}
+					 				
+//					 			Log.d(TAG, "Len of String arr = "+ array.length);
+					 			Fragment mFragment = ItemsFragment.newInstance(btnWidth,btnHeight,items,color_arr);
+					 			//set button for each page
+					 			final RadioButton dotButton = new RadioButton(getActivity().getBaseContext());
+					 			dotButton.setId(i);
+					 			dotButton.setLayoutParams(new RadioGroup.LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+					 			dotButton.setPadding(20, 0, 20, 0);
+//					 			dotButton.setBackgroundResource(R.drawable.dot_bg);//background of each page
+					 			dotButton.setButtonDrawable(R.drawable.dot_bg);
+					 			
+					 			dotButton.setTag(i);//set tag for each page's listener
+					 			
+					 			dotButton.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+					 				@Override
+					 				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+					 					if(isChecked){
+					 						viewPager.setCurrentItem((Integer)dotButton.getTag(),true);
+					 					}
+					 				}
+					 			});
+//					 			Log.d(TAG, "dotGroupButton = "+ dotGroupButton);
+					 			dotGroupButton.addView(dotButton);
+					 			dotGroupButton.check(0);
+					 			fragmentsList.add(mFragment);
+					 		}
+					 		
+					 	    adapter = new MyFragmentPagerAdapter(getActivity().getSupportFragmentManager(), fragmentsList);
+					 		viewPager.setAdapter(adapter);
+					 		adapter.notifyDataSetChanged();
+					 		
+					 		// set Page Change Listener (notice data changed to the adapter!)
+					 		viewPager.setOnPageChangeListener(new ViewPager.OnPageChangeListener() 
+					 		{				
+
+					 			@Override
+					 			public void onPageSelected(int position) {
+					 				((RadioButton)dotGroupButton.getChildAt(position)).setChecked(true);
+//					 				viewPager.findViewWithTag(position);
+					 				//adapter.notifyDataSetChanged();// load new page while page changing
+					 			}
+					 			
+					 			@Override
+					 			public void onPageScrolled(int arg0, float arg1, int arg2) {
+					 			}
+					 			
+					 			@Override
+					 			public void onPageScrollStateChanged(int arg0) {
+					 			}
+					 		});
+					       
+					 		
+//					 			viewPager.setOffscreenPageLimit(3);
+						//
+					
+					
+			}
+		
+	}
+
+	
+	
+	
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container,
+			Bundle savedInstanceState) {	
+		viewMain = inflater.inflate(R.layout.item_lookup_fragment,container,false);
+		
+		//viewMain = inflater.inflate(R.layout.item_lookup_fragment, container, false);
+		// I had to add this ViewTreeObserver because - createdepartments() needs to use this dept view to 
+		// get screenwidth and screenheight so the function was getting null value so using this treeviewObserver function 
+		// I am waiting for view to get created so my departmentlist creation function does not get the null value
+		ViewTreeObserver observer = viewMain .getViewTreeObserver();   
+
+	    observer.addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+			
+			@SuppressWarnings("deprecation")
+			@Override
+			public void onGlobalLayout() {
+				if(Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) {
+					viewMain.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+				} else {
+					viewMain.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+				}
+				
+				
+				//viewMain.getViewTreeObserver().removeOnGlobalLayoutListener(this);			
+				//Log.d("Frag_shown", "viewMain is shown = "+viewMain.isShown());
+				calltoitemwebservice();
+			}
+		});
+	    
+
+      // Log.d("Frag_shown", "viewMain is shown = "+viewMain.getVisibility());
+       return viewMain;
+	}
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		// TODO Auto-generated method stub
+		super.onCreate(savedInstanceState);
+		Bundle args = getArguments();
+		if(args!=null)
+		dept_itemlist = args.getParcelableArrayList("dept_itemlist");
+	}
+
+	public static ItemLookupFragment newInstance(ArrayList<InventoryParcelable> mylist)
+	{
+	ItemLookupFragment itemlookupfragment = new ItemLookupFragment();
+	Bundle bundle = new Bundle();
+	bundle.putParcelableArrayList("dept_itemlist", mylist);
+	itemlookupfragment.setArguments(bundle);
+		return itemlookupfragment;
+	}
+	
+}
+
