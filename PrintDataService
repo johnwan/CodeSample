@@ -1,0 +1,426 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.UUID;
+
+import com.google.zxing.WriterException;
+import com.intlpos.cornerstorepos.R;
+import com.john.bluetoothprinter.helper.BarcodeUtil;
+import com.john.bluetoothprinter.helper.PrinterCommands;
+
+import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.os.Environment;
+import android.util.Log;
+import android.widget.Toast;
+
+public class PrintDataService {
+	private Context context = null;
+	private String deviceAddress = null;
+	private BluetoothAdapter bluetoothAdapter = BluetoothAdapter
+			.getDefaultAdapter();
+	private BluetoothDevice device = null;
+	private static BluetoothSocket bluetoothSocket = null;
+	private static OutputStream outputStream = null;
+	private static final UUID uuid = UUID
+			.fromString("00001101-0000-1000-8000-00805F9B34FB");
+	public boolean isConnected = false;
+	final String[] items = { "Reset Printer", "Standard ASCII", "Small ASCII", "Large Font","Standard Font",
+			"Doubled", "Cancel Bold", "Bold", "Cancel Reverse", "Choose Reverse", "Cancel Invert", "Choose Invert",
+			"Cancel Rotate 90°", "Choose Rotate 90°" };
+	final static public byte[][] byteCommands = { { 0x1b, 0x40 },// 复位打印机
+			{ 0x1b, 0x4d, 0x00 },// 标准ASCII字体
+			{ 0x1b, 0x4d, 0x01 },// 压缩ASCII字体
+			{ 0x1d, 0x21, 0x01 },// 字体放大
+			{ 0x1d, 0x21, 0x00 },// 字体不放大
+			{ 0x1d, 0x21, 0x11 },// 宽高加倍
+			{ 0x1b, 0x45, 0x00 },// 取消加粗模式
+			{ 0x1b, 0x45, 0x01 },// 选择加粗模式
+			{ 0x1b, 0x7b, 0x00 },// 取消倒置打印
+			{ 0x1b, 0x7b, 0x01 },// 选择倒置打印
+			{ 0x1d, 0x42, 0x00 },// 取消黑白反显
+			{ 0x1d, 0x42, 0x01 },// 选择黑白反显
+			{ 0x1b, 0x56, 0x00 },// 取消顺时针旋转90°
+			{ 0x1b, 0x56, 0x01 },// 选择顺时针旋转90°
+	};
+
+	public PrintDataService(Context context, String deviceAddress) {
+		super();
+		this.context = context;
+		this.deviceAddress = deviceAddress;
+		try{
+		this.device = this.bluetoothAdapter.getRemoteDevice(this.deviceAddress);
+		}catch(IllegalArgumentException e){
+			Toast.makeText(context, "Mac Address is invalid", Toast.LENGTH_SHORT).show();
+		}
+		
+//		connect();
+	}
+
+	/**
+	 * 获取设备名称
+	 * 
+	 * @return String
+	 */
+	public String getDeviceName() {
+		return this.device.getName();
+	}
+
+	/**
+	 * 连接蓝牙设备
+	 */
+	public boolean connect() {
+		if (!this.isConnected) {
+			try {
+				bluetoothSocket = this.device
+						.createRfcommSocketToServiceRecord(uuid);
+				bluetoothSocket.connect();
+				outputStream = bluetoothSocket.getOutputStream();
+				this.isConnected = true;
+				if (this.bluetoothAdapter.isDiscovering()) {
+					System.out.println("Close Adapter!");
+					this.bluetoothAdapter.isDiscovering();
+				}
+			} catch (Exception e) {
+				Toast.makeText(this.context, "Connect failed!", 1).show();
+				return false;
+			}
+			Toast.makeText(this.context, this.device.getName() + "Connect successed!",
+					Toast.LENGTH_SHORT).show();
+			return true;
+		} else {
+			return true;
+		}
+	}
+	
+	public boolean settingsConnect() {
+		if (!this.isConnected) {
+			try {
+				bluetoothSocket = this.device
+						.createRfcommSocketToServiceRecord(uuid);
+				bluetoothSocket.connect();
+				outputStream = bluetoothSocket.getOutputStream();
+				this.isConnected = true;
+				if (this.bluetoothAdapter.isDiscovering()) {
+					System.out.println("Close Adapter!");
+					this.bluetoothAdapter.isDiscovering();
+				}
+			} catch (Exception e) {
+				Toast.makeText(this.context, "Connect failed!", 1).show();
+				return false;
+			}
+			
+			return true;
+		} else {
+			return true;
+		}
+	}
+
+	/**
+	 * 断开蓝牙设备连接
+	 */
+	public static void disconnect() {
+		System.out.println("Disconect bluetooth device");
+		try {
+			bluetoothSocket.close();
+			outputStream.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * 选择指令
+	 * selectCommand()
+	 */
+	public void selectCommand() {
+		new AlertDialog.Builder(context).setTitle("Please Choose Command")
+				.setItems(items, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (isConnected) {
+							try {
+								outputStream.write(byteCommands[which]);
+
+							} catch (IOException e) {
+								Toast.makeText(context, "Failed to set Command!",
+										Toast.LENGTH_SHORT).show();
+							}
+						} else {
+							Toast.makeText(context, R.string.connect_failed_please_reconnect,
+									Toast.LENGTH_SHORT).show();
+						}
+					}
+				}).create().show();
+	}
+
+	/**
+	 * 发送数据
+	 * send data
+	 */
+	public void send(String sendData) {
+		if (this.isConnected) {
+			System.out.println(sendData);
+			try {
+				byte[] data = sendData.getBytes("utf-8");
+				Log.d("senddata", sendData);
+				outputStream.write(data, 0, data.length);
+				outputStream.flush();
+			} catch (IOException e) {
+				Toast.makeText(this.context, context.getString(R.string.failed_to_send_data), Toast.LENGTH_SHORT)
+						.show();
+			}
+		} else {
+			Toast.makeText(this.context, context.getString(R.string.connect_failed_please_reconnect), Toast.LENGTH_SHORT)
+					.show();
+
+		}
+	}
+	/**
+	 * send parameter of Barcode and create byte array for printing
+	 * @param String content to create barcode
+	 * @throws WriterException 
+	 */
+	public  byte[] sendBarcodeParam(String storeNo, String invoiceNo){
+			final byte[] BARCODE_HEADER = {29, 120, 40, 29, 119, 1, 29, 107, 73};// code 128 , should followed by String length, then the string body.
+			final byte[] CODEB = {123, 66};// for printing letters
+			final byte[] CODEC = {123, 67};// for printing digits
+			System.out.println("Printing!");
+			try {
+				ByteArrayOutputStream output = new ByteArrayOutputStream();
+				output.write(BARCODE_HEADER);
+				output.write(storeNo.length()+invoiceNo.length()+10);
+				output.write(CODEB);
+				output.write('I');
+				output.write(CODEC);
+				output.write(storeNo.getBytes("US-ASCII"));
+				output.write(CODEB);
+				output.write('-');
+				output.write(CODEC);
+                output.write(invoiceNo.getBytes("US-ASCII"));// 传输文件buffer[]
+                byte[] result = output.toByteArray();
+                for(byte b:  result)
+                	Log.d("Printer", b+"");
+                output.close();
+                return result;
+			} catch (IOException e) {
+				Log.e("Printer", e.toString());
+			}
+			return null;
+	}	
+	/**
+	 * 发送带指令数据
+	 * send data with command index
+	 */
+	public byte[] sendwithCommand(String sendData, int which) {
+			System.out.println("Printing!");
+			try {
+				ByteArrayOutputStream output = new ByteArrayOutputStream();
+				byte[] command =byteCommands[which];
+				byte[] data = sendData.getBytes("utf-8");
+				Log.d("sendData", sendData);
+				output.write(command);
+				output.write(data);
+				return output.toByteArray();
+			} catch (IOException e) {
+				Toast.makeText(this.context, context.getString(R.string.failed_to_send_data), Toast.LENGTH_SHORT)
+						.show();
+			}
+		
+		return null;
+	}
+	
+	private byte[] mergeByteArray(byte[] command, byte[] data) {
+		// TODO Auto-generated method stub
+		byte[] result = new byte[command.length + data.length];
+		System.arraycopy(command, 0, result, 0, command.length);
+		System.arraycopy(data, 0, result, data.length, data.length);
+		return result;
+	}
+
+	/**
+	 * 发送数据生成BitMap打印
+	 * send parameter of Barcode and Print it out
+	 * @throws WriterException 
+	 */
+	public byte[] sendBitMapParam(String content, int imgWidth, int imgHeight) throws WriterException {
+			
+			try {
+				ByteArrayOutputStream output = new ByteArrayOutputStream();
+				Bitmap bm = BarcodeUtil.writeCode128(content, imgWidth, imgHeight);
+				for (int i = 0; i < 2; i++){
+					output.write(PrinterCommands.FEED_LINE);
+				}
+				output.write(PrinterCommands.START, 0, PrinterCommands.START.length);	
+                byte[] buffer = getReadBitMapBytes(bm);
+
+                output.write(buffer, 0, buffer.length);// 传输文件buffer[]
+				output.write(PrinterCommands.END, 0, PrinterCommands.END.length);
+                byte[] data = new byte[1];
+                data[0] = 13;// 加一个换行符 13
+                output.write(data, 0, data.length);
+                System.out.println("PRINTING THE BARCODE !!");
+				return output.toByteArray();
+			} catch (IOException e) {
+				Log.e("Printer", e.toString());
+			}
+		return null;
+	}
+	
+	/**解析图片 获取打印数据**/
+	private byte[] getReadBitMapBytes(Bitmap bitmap) {
+		/***图片添加水印**/
+		//bitmap = createBitmap(bitmap);
+		byte[] bytes = null;  //打印数据
+		int width = bitmap.getWidth();
+		int height = bitmap.getHeight();
+		System.out.println("width=" + width + ", height=" + height);
+		int heightbyte = (height - 1) / 8 + 1;
+		int bufsize = width * heightbyte;
+		int m1, n1;
+        byte[] maparray = new byte[bufsize];
+        
+        byte[] rgb = new byte[3];
+        
+        int []pixels = new int[width * height]; //通过位图的大小创建像素点数组
+        
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+        /**解析图片 获取位图数据**/
+		for (int j = 0;j < height; j++) {
+			for (int i = 0; i < width; i++) {
+				int pixel = pixels[width * j + i]; /**获取ＲＧＢ值**/
+				int r = Color.red(pixel);
+				int g = Color.green(pixel);
+				int b = Color.blue(pixel);
+				//System.out.println("i=" + i + ",j=" + j + ":(" + r + ","+ g+ "," + b + ")");
+				rgb[0] = (byte)r;
+				rgb[1] = (byte)g;
+				rgb[2] = (byte)b;
+				 if (r != 255 || g != 255 || b != 255){//如果不是空白的话用黑色填充    这里如果童鞋要过滤颜色在这里处理 
+                     m1 = (j / 8) * width + i;
+                     n1 = j - (j / 8) * 8;
+                     maparray[m1] |= (byte)(1 << 7 - ((byte)n1));
+                 }
+			}
+		}
+		byte[] b = new byte[width];
+		int line = 0;
+		int j = 0;
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		
+		/**对位图数据进行处理**/
+		for (int i = 0; i < maparray.length; i++) {
+			b[j] = maparray[i];
+			j++;
+			if (j == width) {  /**  322图片的宽 **/
+				if (line < ((width - 1) / 8)) {
+					byte[] lineByte = new byte[width+5];
+					byte nL = (byte) width;
+					byte nH = (byte) (width >> 8);
+					int index = 5;
+					/**添加打印图片前导字符  每行的 这里是8位**/
+					lineByte[0] = 0x1B;
+					lineByte[1] = 0x2A;
+					lineByte[2] = 0;
+					lineByte[3] = nL;
+					lineByte[4] = nH;
+					/**copy 数组数据**/
+					System.arraycopy(b, 0, lineByte, index, b.length);
+
+					lineByte[lineByte.length - 2] = 0x0D;
+					lineByte[lineByte.length - 1] = 0x0A;
+					baos.write(lineByte, 0, lineByte.length);
+					try {
+						baos.flush();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					line++;
+				}
+				j = 0;
+			}
+		}
+		bytes = baos.toByteArray();
+		return bytes;
+	}
+
+
+	/**
+	 * 发送带指令数据
+	 * feed and cut
+	 */
+	public void sendFeedCutCommand() {
+		if (this.isConnected) {
+			try {
+				outputStream.write(PrinterCommands.FEED_PAPER_AND_CUT);
+				outputStream.flush();
+			} catch (IOException e) {
+					/*	Toast.makeText(this.context, context.getString(R.string.failed_to_send_data), Toast.LENGTH_SHORT)
+						.show();*/
+			}
+		} else {
+			Toast.makeText(this.context, context.getString(R.string.connect_failed_please_reconnect), Toast.LENGTH_SHORT)
+					.show();
+		
+		}
+	}
+
+	public void sendByteArray(byte[] data) {
+		// TODO Auto-generated method stub
+		if (this.isConnected) {
+			try {
+				outputStream.write(data);
+				outputStream.flush();
+			} catch (IOException e) {
+				Toast.makeText(this.context, context.getString(R.string.failed_to_send_data), Toast.LENGTH_SHORT)
+				.show();
+			}
+		} else {
+			Toast.makeText(this.context, context.getString(R.string.connect_failed_please_reconnect), Toast.LENGTH_SHORT)
+					.show();
+			connect();
+		}
+	}
+	public static void writeToFile(byte[] byteArray) throws IOException {
+		// TODO Auto-generated method stub
+        FileOutputStream fOut = null;
+    	File file = null;
+		file = new File(Environment.getExternalStorageDirectory(),"last_invoice.txt");
+	    if (file.exists())
+		    file.delete();
+		file.createNewFile();
+        fOut= new FileOutputStream(file);
+        fOut.write(byteArray);
+        fOut.close();
+	}
+	public void openCashDrawer(){
+		if (this.isConnected) {
+			try {
+				outputStream.write(PrinterCommands.OPEN_CASHDROWER_2PIN);
+//				outputStream.write(PrinterCommands.OPEN_CASHDROWER_5PIN);                byte[] data = new byte[1];
+//                outputStream.write(PrinterCommands.FEED_LINE);
+//                outputStream.write(PrinterCommands.INIT);
+				outputStream.flush();
+			} catch (IOException e) {
+				Toast.makeText(this.context, context.getString(R.string.failed_to_send_data), Toast.LENGTH_SHORT)
+				.show();
+			}
+		} else {
+			Toast.makeText(this.context, context.getString(R.string.connect_failed_please_reconnect), Toast.LENGTH_SHORT)
+					.show();
+			connect();
+		}
+	}
+}
