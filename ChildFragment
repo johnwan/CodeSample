@@ -1,0 +1,372 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.concurrent.ExecutionException;
+
+import com.intlpos.cornerstorepos.R;
+import com.intlpos.cornerstorepos.TestFragment.OnMyButtonClickListener;
+import com.intlpos.mysharedpreferences.CSSharedPreferences;
+
+import android.app.Activity;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.Environment;
+import android.support.v4.app.Fragment;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.Button;
+import android.widget.Toast;
+import android.widget.ImageView;
+
+public class ItemsFragment extends Fragment {
+	private int btnWidth;
+	private int btnHeight;
+    private static final String TAG = "TestFragment";
+    //private String[] sTitle = null;// = "hello android";
+    private int[] bg_color = null;
+    private OnMyProductButtonClickListener pListener;
+    private ArrayList<HashMap<String,Object>> items = null;
+    private String[] item_name = null;
+    private String[] product_id = null;
+    private Bitmap urlBit;
+    public interface OnMyProductButtonClickListener{
+		public void onMyProductButtonClick(HashMap<String,Object> myproduct);
+	}
+	
+	@Override
+	public void onAttach(Activity activity){
+		super.onAttach(activity);
+		try{
+		pListener = (OnMyProductButtonClickListener) activity;
+		} catch(ClassCastException e){
+			throw new ClassCastException(activity.toString() 
+					+ "must implement OnMyButtonClickListener();");
+		}
+	}
+    
+    // Rinkal - added while Items Lookup
+    static ItemsFragment newInstance(int width, int height, ArrayList<InventoryParcelable> item,int[] bg_color) {
+    	ItemsFragment newFragment = new ItemsFragment();
+        Bundle bundle = new Bundle();
+        bundle.putInt("btnWidth", width);
+        bundle.putInt("btnHeight", height);
+        bundle.putIntArray("bg_color", bg_color);
+        bundle.putParcelableArrayList("value", item);
+        newFragment.setArguments(bundle);
+        return newFragment;
+    }
+    
+    
+    
+//    static ItemsFragment newInstance(int width, int height, String[] name, String[] id,int[] bg_color) {
+//    	ItemsFragment newFragment = new ItemsFragment();
+//        Bundle bundle = new Bundle();
+//        bundle.putInt("btnWidth", width);
+//        bundle.putInt("btnHeight", height);
+//        //bundle.putSerializable("value", products);
+//        bundle.putStringArray("item_name", name);
+//        bundle.putStringArray("product_id", id);
+//        bundle.putIntArray("bg_color", bg_color);
+//        newFragment.setArguments(bundle);
+//        //newFragment.setRetainInstance(true);
+//        return newFragment;
+//    }
+    
+  
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+//        Log.d(TAG, "TestFragment-----onCreate");
+        if (savedInstanceState == null){
+        	
+        
+        Bundle args = getArguments();
+        bg_color = (int[]) args.getIntArray("bg_color");
+        ArrayList<InventoryParcelable> itemsList = args.getParcelableArrayList("value");
+        items = new ArrayList<HashMap<String,Object>>();
+        for(InventoryParcelable ip: itemsList){
+        	items.add(ip.map);
+        	
+        }
+        for(int i = 0; i < items.size(); i++){
+        	Log.d("ITEMS", ""+items.get(i));
+        }
+        //Log.d("CSPOS NAMES",items.get(0).get("item_name").toString());
+//        item_name = (String[]) args.getStringArray("item_name");
+//        product_id = (String[]) args.getStringArray("product_id");
+        btnWidth = (int) args.getInt("btnWidth");
+        btnHeight = (int) args.getInt("btnHeight");
+        
+        }
+        
+        
+    }
+
+
+	@Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,Bundle savedInstanceState) {
+   
+        MyViewGroup view = (MyViewGroup) inflater.inflate(R.layout.pager_item, container, false);
+        int len = items == null ? 0 : items.size();
+        //int len = item_name == null ? 0 : item_name.length;
+        MyImageButton[] button = new MyImageButton[len];
+        int count = 0;
+//        Button[] button = new Button[len];
+        for(int i = 0 ; i<len;i++){
+        	boolean pic = false;
+        	button[i] = new MyImageButton(this.getActivity());        
+        	MyViewGroup.LayoutParams param = new MyViewGroup.LayoutParams(btnWidth,LayoutParams.WRAP_CONTENT);
+        	button[i].setMinimumHeight(btnHeight);
+        	button[i].setMinimumWidth(btnWidth);
+        	button[i].setLayoutParams(param);
+        	
+        	if(!items.get(i).get("picture").toString().isEmpty()){
+        		try{
+        			pic = true;
+        			
+        			Log.d("setting images", items.get(i).get("picture").toString());
+        			//GetAndSaveImage imag = new GetAndSaveImage();
+        			//imag.execute(items.get(i).get("picture").toString());
+        			 
+        			urlBit = getSavedImage(items.get(i).get("product_id").toString());
+        			
+        			/*try {
+        				urlBit = imag.get();
+        			} catch (InterruptedException | ExecutionException e1) {
+        				// TODO Auto-generated catch block
+        				e1.printStackTrace();
+        			}*/
+	        			Log.d("setting images", items.get(i).get("picture").toString());
+		        		Bitmap zoomBitmap = ImageUtil.zoomBitmap(urlBit, btnWidth, btnHeight); 
+		        		Bitmap roundBitmap = ImageUtil.getRoundedCornerBitmap(zoomBitmap, 10.0f);
+		        		Drawable d = new BitmapDrawable(getResources(),roundBitmap);
+	        			//button[i].setImageBitmap(resized);
+	        			button[i].setBackground(d);
+	        			//button[i].setScaleType(ImageView.ScaleType.FIT_XY);
+	        			
+	        			/*int wid = bitmap.getWidth();
+	        			int heit = bitmap.getHeight();
+	        			Matrix matrix = new Matrix();
+	        			float scaleWidht = ((float)wid / btnWidth);
+	        	    	float scaleHeight = ((float)heit / btnHeight);
+	        	    	matrix.postScale(scaleWidht, scaleHeight);
+	        	    	Log.d("heit", ""+matrix);
+	        	    	Bitmap newbmp = Bitmap.createBitmap(bitmap, 0, 0, wid, heit, matrix, true);
+	        			
+	        			Bitmap roundBitmap = ImageUtil.getRoundedCornerBitmap(newbmp, 10.0f);
+	        			//Drawable d = new BitmapDrawable(getResources(),newbmp);
+	        			//button[i].setImageDrawable(d);
+	        			button[i].setScaleType(ImageView.ScaleType.FIT_START)*/
+        			}
+        			catch(NullPointerException e){
+        				
+        			}
+
+        			
+        		}
+        	if(pic == false)
+        		button[i].setBackgroundResource(R.drawable.bg_inventorybutton_states);
+        	//Log.d("Btn_para", items.get(i).get("item_name").toString()+items.get(i).get("product_id"));
+        	button[i].setText(items.get(i).get("item_name").toString());
+        	button[i].setPrice(((BigDecimal) items.get(i).get("price")).setScale(2, BigDecimal.ROUND_HALF_EVEN).toString());
+        	//button[i].setText(item_name[i]);
+        	
+        	button[i].setTextColor(Color.BLACK);
+//        	button[i].setGravity(80);
+        	//set id and Tag for Listener
+        	button[i].setId(i);
+        	//button[i].setTag((Integer) items.get(i).get("product_id"), items.get(i).get("item_no").toString());
+        	button[i].setTag(items.get(i));
+//        	Log.d("Btn_tag",""+button[i].getTag());
+        	//button[i].setTag(product_id[i]);
+
+        	view.addView(button[i]);
+        	
+        	final String barcode = (String) items.get(i).get("item_no");
+        	        	button[i].setOnLongClickListener(new Button.OnLongClickListener() {
+        					@Override
+        					public boolean onLongClick(View v) {
+        	//					CornerStorePOS app = new CornerStorePOS();
+        						PriceCheckDialog dialog = new PriceCheckDialog(getActivity(),CornerStorePOS.PMap,barcode);
+        						dialog.setTitle(R.string.CheckItem);
+        		                dialog.show();	       
+        						return false;
+        					}
+        	        		
+        	       	});
+        	
+        	view.setBackgroundResource(R.drawable.shape);
+            	button[i].setOnClickListener(new Button.OnClickListener() {
+            	    @Override
+            	        public void onClick(View v) {
+            	    	HashMap<String,Object> product =  (HashMap<String, Object>) v.getTag();
+            	    //	Toast.makeText(getActivity(), ""+product , Toast.LENGTH_SHORT).show();
+            	    	
+            	    	pListener.onMyProductButtonClick(product);
+            	       }
+            	     });
+        	}
+        
+        
+        return view;
+    }
+	
+	
+	/*private Bitmap getSavedImage(int coun){
+    	File cacheDir = getDataFolder(getActivity().getApplicationContext(), coun);
+    	
+    	File cacheFile = new File(cacheDir, "Image"+coun);
+    	coun++;
+    	InputStream fileInputStream = null;
+		try {
+			Log.d("ITS WORKING", "YAY");
+			fileInputStream = new FileInputStream(cacheFile);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			Log.d("ITS NOt WORKING", "NAY");
+			e.printStackTrace();
+		}
+    	BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
+    	//bitmapOptions.inSampleSize = scale;
+    	bitmapOptions.inJustDecodeBounds = false;
+    	Bitmap wallpaperBitmap = BitmapFactory.decodeStream(fileInputStream, null, bitmapOptions);
+    	
+    	return wallpaperBitmap;
+    }
+	
+    public File getDataFolder(Context context, int count) {
+		File dataDir = null;
+	        if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+	        	
+	        	dataDir = new File(Environment.getExternalStorageDirectory(), "ImageFolder"+count);
+	        	
+	            if(!dataDir.isDirectory()) {
+	            	dataDir.mkdirs();
+	            }
+	        }
+	        
+	        if(!dataDir.isDirectory()) {
+	        	dataDir = context.getFilesDir();
+	        }
+	        
+		return dataDir;
+	}
+    
+    public String getFileName(int coun){
+    	File cacheDir = getDataFolder(getActivity().getApplicationContext(), coun);
+    	File cacheFile = new File(cacheDir, "Image"+coun);
+    	
+    	return cacheFile.toString();
+    }*/
+    
+   
+    
+    private class GetAndSaveImage extends AsyncTask<String, Integer, Bitmap> {
+
+		@Override
+		protected Bitmap doInBackground(String... params) {
+			try {
+				String newUrl = params[0];
+				String newest = null;
+				String bestURl = null;
+				if(newUrl.contains("\\/")){
+					Log.d("NEW URL", "contatins");
+					newest = "http://"+ newUrl.replace("\\/", "/");
+				}
+				if(newest.contains("\\")){
+					bestURl = newest.replace("\\", "/");
+				}
+				Log.d("newest", newest);
+	            URL url = new URL(bestURl);
+	            Log.d("result", "goodurl");
+	            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+	            Log.d("result", "HttpURLConnection");
+	            //connection.setDoInput(true);
+	            connection.connect();
+	            Log.d("result", "connection");
+	            InputStream input = connection.getInputStream();
+	            Log.d("result", "input");
+	            Bitmap myBitmap = BitmapFactory.decodeStream(input);
+	            return myBitmap;
+	        } catch (IOException e) {
+	            // Log exception
+	        	Log.d("result", e.getMessage());
+	        	return null;
+	        }
+			
+		}
+		
+		
+		@Override
+		protected void onPostExecute(Bitmap result) 
+		{		
+			
+		}
+    	
+    }
+	
+    
+    private File getDataFolder(Context context) {
+		File dataDir = null;
+	        if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+	        	dataDir = new File(Environment.getExternalStorageDirectory(), "imagefolder");
+	            if(!dataDir.isDirectory()) {
+	            	dataDir.mkdirs();
+	            }
+	        }
+	        
+	        if(!dataDir.isDirectory()) {
+	        	dataDir = context.getFilesDir();
+	        }
+	        
+		return dataDir;
+	}
+	
+	private Bitmap getSavedImage(String product){
+    	File cacheDir = getDataFolder(getActivity().getApplicationContext());
+    
+    	File cacheFile = new File(cacheDir, product+".jpg");
+    	
+    	InputStream fileInputStream = null;
+		try {
+			Log.d("ITS WORKING", "YAY");
+			fileInputStream = new FileInputStream(cacheFile);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			Log.d("ITS NOt WORKING", "NAY");
+			e.printStackTrace();
+		}
+    	BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
+    
+    	bitmapOptions.inJustDecodeBounds = false;
+    	Bitmap wallpaperBitmap = BitmapFactory.decodeStream(fileInputStream, null, bitmapOptions);
+    	
+    	return wallpaperBitmap;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+//        Log.d(TAG, "TestFragment-----onDestroy");
+    }
+    
+    
+    
+}
